@@ -99,6 +99,25 @@ export default function Home() {
     window.setTimeout(() => setWarpActive(false), 1150);
   }
 
+  function toggleSound() {
+    const next = !sound;
+    setSound(next);
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audio = new AudioContextClass();
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = next ? 560 : 180;
+    gain.gain.setValueAtTime(0.0001, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.035, audio.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.16);
+    oscillator.connect(gain).connect(audio.destination);
+    oscillator.start();
+    oscillator.stop(audio.currentTime + 0.17);
+    oscillator.addEventListener("ended", () => { void audio.close(); });
+  }
+
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setSignedInEmail(data.session?.user.email ?? null));
@@ -127,7 +146,7 @@ export default function Home() {
 
   return (
     <main className={mode === "past" ? "site past-mode" : "site"}>
-      <nav className="nav shell"><a className="brand" href="#top" aria-label="When Tomorrow Remembers home"><span className="brand-mark">◌</span><span>W.T.R. / ARCHIVE</span></a><div className="nav-links"><a href="#story">Story</a><a href="#characters">Files</a><a href="#simulator">Simulator</a><a href="#chapters">Chapters</a></div><div className="nav-actions"><button className="account-button" onClick={() => setAuthOpen(true)}>ACCOUNT <span>↗</span></button><button className="sound-toggle" onClick={() => setSound(!sound)} aria-label="Toggle sound">{sound ? "SOUND ON" : "SOUND OFF"}<span className={sound ? "toggle on" : "toggle"}><i /></span></button></div></nav>
+      <nav className="nav shell"><a className="brand" href="#top" aria-label="When Tomorrow Remembers home"><span className="brand-mark">◌</span><span>W.T.R. / ARCHIVE</span></a><div className="nav-links"><a href="#story">Story</a><a href="#characters">Files</a><a href="#simulator">Simulator</a><a href="#chapters">Chapters</a></div><div className="nav-actions"><button className="sound-toggle" onClick={toggleSound} aria-label="Toggle sound"><span className="sound-label">{sound ? "SOUND ON" : "SOUND OFF"}</span><span className={sound ? "toggle on" : "toggle"}><i /></span></button><button className="account-button" onClick={() => setAuthOpen(true)}>ACCOUNT <span>↗</span></button></div></nav>
 
       <section id="top" className="hero shell"><div className="hero-copy"><p className="eyebrow"><span className="status-dot" /> PRIVATE ARCHIVE · BOOK 01</p><h1>When<br /><em>Tomorrow</em><br />Remembers</h1><p className="hero-intro">A secret laboratory. An impossible request. A date that refuses to stay in the past.</p><div className="hero-actions"><a className="button primary" href="#read" onClick={() => { setReaderOpen(true); setReaderChapter("Prologue"); }}>Start the story <span>↗</span></a><a className="text-link" href="#story">Explore the archive <span>↓</span></a></div><div className="hero-meta"><span>SCIENCE FICTION</span><span>TIME-TRAVEL MYSTERY</span><span>SLOW-BURN ROMANCE</span></div></div><div className="hero-visual" aria-hidden="true"><div className="orbit orbit-one"><span /></div><div className="orbit orbit-two"><span /></div><div className="orbit orbit-three"><span /></div><div className="core"><div className="core-grid" /><span className="core-label">TEMPORAL<br />CORE</span><b>2027</b></div><div className="data-chip chip-a">RETURN POINT<br /><strong>STABLE</strong></div><div className="data-chip chip-b">QUANTUM LOAD<br /><strong>08.42%</strong></div><div className="data-chip chip-c">COORDINATES<br /><strong>14°10′N</strong></div></div></section>
       <div className="ticker"><div className="shell ticker-inner"><span>EVERY JOURNEY LEAVES SOMETHING BEHIND</span><span>◌</span><span>EVERY JOURNEY LEAVES SOMETHING BEHIND</span><span>◌</span><span>EVERY JOURNEY LEAVES SOMETHING BEHIND</span></div></div>
