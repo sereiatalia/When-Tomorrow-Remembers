@@ -94,7 +94,7 @@ export default function Home() {
     if (!supabase) { setAuthMessage("Connect the Supabase publishable key in your environment first."); return; }
     if (authMode === "signup") {
       const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword, options: { data: { username: authUsername }, emailRedirectTo: window.location.origin } });
-      setAuthMessage(error ? error.message : "Check your email for the confirmation link, then return here to sign in.");
+      setAuthMessage(error ? (error.message.toLowerCase().includes("database error saving new user") ? "Supabase rejected this signup in the database. Run the profile migration, then check Supabase Auth Logs for any existing trigger error." : error.message) : "Check your email for the confirmation link, then return here to sign in.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       setAuthMessage(error ? error.message : "Signed in. Your reader progress is now ready to sync.");
