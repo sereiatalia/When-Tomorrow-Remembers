@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://when-tomorrow-remembers.com/sitemap.xml
