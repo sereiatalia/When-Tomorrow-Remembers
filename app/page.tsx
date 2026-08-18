@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 11115)
-Total output lines: 1328
+Warning: truncated output (original token count: 11164)
+Total output lines: 1334
 
 "use client";
 
@@ -13,6 +13,8 @@ import {
 import { useEffect } from "react";
 import { supabase } from "./supabase";
 import { storySections } from "./storyContent";
+
+export const dynamic = "force-static";
 
 type Mode = "present" | "past";
 
@@ -58,8 +60,7 @@ const yearProfiles: Record<
     signal: "RETURN SIGNAL ............... WAITING",
   },
   "2017": {
-    location: "MANILA AIRPORT",
-    date: "DEC 25",…10115 tokens truncated…div className="password-field">
+    locatio…10164 tokens truncated…div className="password-field">
                   <input
                     className="auth-input"
                     type={showPassword ? "text" : "password"}
