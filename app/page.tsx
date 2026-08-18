@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { supabase } from "./supabase";
 
 type Mode = "present" | "past";
 
@@ -70,7 +72,39 @@ export default function Home() {
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerChapter, setReaderChapter] = useState("Prologue");
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
   const visibleChapters = useMemo(() => filter === "available" ? chapters.slice(0, 3) : filter === "future" ? chapters.slice(3) : chapters, [filter]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSignedInEmail(data.session?.user.email ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setSignedInEmail(session?.user.email ?? null));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function submitAuth() {
+    setAuthMessage("");
+    if (!supabase) { setAuthMessage("Connect the Supabase publishable key in your environment first."); return; }
+    if (authMode === "signup") {
+      const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword, options: { data: { username: authUsername }, emailRedirectTo: window.location.origin } });
+      setAuthMessage(error ? error.message : "Check your email for the confirmation link, then return here to sign in.");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      setAuthMessage(error ? error.message : "Signed in. Your reader progress is now ready to sync.");
+    }
+  }
+
+  async function saveProgress() {
+    if (!supabase) { setReaderOpen(false); return; }
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) await supabase.from("reader_progress").upsert({ user_id: data.session.user.id, username: authUsername || data.session.user.user_metadata?.username || null, book_number: 1, chapter_key: readerChapter, progress_percent: 0, updated_at: new Date().toISOString() });
+    setReaderOpen(false);
+  }
 
   return (
     <main className={mode === "past" ? "site past-mode" : "site"}>
@@ -95,8 +129,8 @@ export default function Home() {
 
       <section id="lab" className="section shell lab-section"><div className="section-heading"><div><p className="section-kicker">07 / HIDDEN LABORATORY</p><h2>Touch nothing<br /><em>important.</em></h2></div><p className="section-note">INTERACTIVE OBJECTS<br />NO TIMELINES HARMED</p></div><div className="lab-grid"><div className="lab-stage"><div className="lab-rings" /><div className="lab-table" /><div className="lab-machine"><span>AV</span></div>{objects.map(([name], i) => <button className={`lab-object object-${i + 1}`} key={name} onClick={() => setActiveObject(activeObject === name ? null : name)} aria-label={`Inspect ${name}`}>{i === 0 ? "⌘" : i === 1 ? "◌" : i === 2 ? "▤" : i === 3 ? "▣" : i === 4 ? "●" : i === 5 ? "◇" : i === 6 ? "✧" : "▥"}<small>{name}</small></button>)}</div><div className="object-panel">{activeObject ? <><span>OBJECT INSPECTION / 0{objects.findIndex(([name]) => name === activeObject) + 1}</span><h3>{activeObject}</h3><p>{objects.find(([name]) => name === activeObject)?.[1]}</p></> : <><span>SELECT AN OBJECT</span><h3>The room remembers<br />what you touch.</h3><p>Explore the laboratory. The locked cabinet is the only thing that refuses to answer.</p></>}<div className="choice-box"><span>READER INPUT</span><p>Would you visit the past for closure?</p><div>{["YES", "NO", "I’M NOT SURE"].map(x => <button className={choice === x ? "selected" : ""} onClick={() => setChoice(x)} key={x}>{x}</button>)}</div>{choice && <small>RESPONSE LOGGED · {choice}</small>}</div></div></div></section>
 
-      {readerOpen && <div className="reader-modal" role="dialog" aria-modal="true" aria-label="Story reader"><div className="reader-modal-card"><button className="modal-close" onClick={() => setReaderOpen(false)} aria-label="Close reader">×</button><div className="reader-modal-top"><span>W.T.R. / STORY READER</span><span>PROGRESS: 00%</span></div><div className="reader-modal-body"><aside><p className="section-kicker">BOOK 01</p>{chapters.slice(0, 3).map(([number, title]) => <button className={readerChapter === title || (readerChapter === "Prologue" && number === "Prologue") ? "selected" : ""} key={title} onClick={() => setReaderChapter(title)}>{number}<span>{title}</span></button>)}<div className="reader-locked">LOCKED CHAPTERS<br /><small>UNLOCK AS THEY ARE RECORDED</small></div></aside><article className="reading-page"><span className="reading-kicker">{readerChapter === "Prologue" ? "PROLOGUE" : "CHAPTER " + (chapters.findIndex(c => c[1] === readerChapter)).toString().padStart(2, "0")}</span><h2>{readerChapter === "Prologue" ? "The First Rule" : readerChapter}</h2>{readerChapter === "Prologue" ? <><p>Aurelia Veyne had twenty-seven rules for time travel, although she often told her customers that there were only three because most people became nervous when they heard the full list.</p><p>The first rule was simple:</p><p className="reading-quote">Never change an event that does not belong to you.</p><p>Her machine could give people answers. It could not always give them peace.</p></> : <><p>Aurelia arrived in the past with a date, a destination, and several rules she absolutely could not break.</p><p>The airport moved around her, unaware that an impossible meeting had just begun.</p></>}<button className="next-reading" onClick={() => setReaderOpen(false)}>Save your place <span>↗</span></button></article></div></div></div>}
-      {authOpen && <div className="reader-modal" role="dialog" aria-modal="true" aria-label="Account access"><div className="account-modal"><button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Close account panel">×</button><span className="section-kicker">ACCOUNT ACCESS / IN PREPARATION</span><h2>Save your<br /><em>place in time.</em></h2><p>Username, password, confirmation email, and cross-device reading progress will be connected here once an email identity provider is selected.</p><div className="account-preview"><span>WHAT WILL BE SAVED</span><strong>Reading progress · unlocked files · reader choices</strong></div><button className="button primary" onClick={() => setAuthOpen(false)}>Continue exploring <span>↗</span></button></div></div>}
+      {readerOpen && <div className="reader-modal" role="dialog" aria-modal="true" aria-label="Story reader"><div className="reader-modal-card"><button className="modal-close" onClick={() => setReaderOpen(false)} aria-label="Close reader">×</button><div className="reader-modal-top"><span>W.T.R. / STORY READER</span><span>{signedInEmail ? "SYNC READY" : "GUEST READING"}</span></div><div className="reader-modal-body"><aside><p className="section-kicker">BOOK 01</p>{chapters.slice(0, 3).map(([number, title]) => <button className={readerChapter === title || (readerChapter === "Prologue" && number === "Prologue") ? "selected" : ""} key={title} onClick={() => setReaderChapter(title)}>{number}<span>{title}</span></button>)}<div className="reader-locked">LOCKED CHAPTERS<br /><small>UNLOCK AS THEY ARE RECORDED</small></div></aside><article className="reading-page"><span className="reading-kicker">{readerChapter === "Prologue" ? "PROLOGUE" : "CHAPTER " + (chapters.findIndex(c => c[1] === readerChapter)).toString().padStart(2, "0")}</span><h2>{readerChapter === "Prologue" ? "The First Rule" : readerChapter}</h2>{readerChapter === "Prologue" ? <><p>Aurelia Veyne had twenty-seven rules for time travel, although she often told her customers that there were only three because most people became nervous when they heard the full list.</p><p>The first rule was simple:</p><p className="reading-quote">Never change an event that does not belong to you.</p><p>Her machine could give people answers. It could not always give them peace.</p></> : <><p>Aurelia arrived in the past with a date, a destination, and several rules she absolutely could not break.</p><p>The airport moved around her, unaware that an impossible meeting had just begun.</p></>}<button className="next-reading" onClick={saveProgress}>Save your place <span>↗</span></button></article></div></div></div>}
+      {authOpen && <div className="reader-modal" role="dialog" aria-modal="true" aria-label="Account access"><div className="account-modal"><button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Close account panel">×</button><span className="section-kicker">ACCOUNT ACCESS / SUPABASE</span><h2>{authMode === "signup" ? "Create your<br /><em>archive key.</em>" : "Return to your<br /><em>archive.</em>"}</h2>{signedInEmail ? <><p>You are signed in as <strong>{signedInEmail}</strong>. Your reading progress can sync across devices.</p><button className="button primary" onClick={async () => { await supabase?.auth.signOut(); setAuthOpen(false); }}>Sign out <span>↗</span></button></> : <><div className="auth-tabs"><button className={authMode === "signin" ? "active" : ""} onClick={() => { setAuthMode("signin"); setAuthMessage(""); }}>SIGN IN</button><button className={authMode === "signup" ? "active" : ""} onClick={() => { setAuthMode("signup"); setAuthMessage(""); }}>SIGN UP</button></div>{authMode === "signup" && <input className="auth-input" placeholder="Username" value={authUsername} onChange={e => setAuthUsername(e.target.value)} /> }<input className="auth-input" type="email" placeholder="Email address" value={authEmail} onChange={e => setAuthEmail(e.target.value)} /><input className="auth-input" type="password" placeholder="Password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} /><button className="button primary auth-submit" onClick={submitAuth}>{authMode === "signup" ? "Create account" : "Sign in"} <span>↗</span></button>{authMessage && <p className="auth-message">{authMessage}</p>}<small className="auth-note">{authMode === "signup" ? "A confirmation email will be sent before your first sign-in." : "Use the email and password from your archive account."}</small></>}</div></div>}
       <footer className="footer shell"><div className="footer-mark">◌</div><div><p>WHEN TOMORROW REMEMBERS</p><span>Book 1 is still being recorded.<br />Some files may remember more than they should.</span></div><a href="#top">RETURN TO TOP ↑</a></footer>
     </main>
   );
