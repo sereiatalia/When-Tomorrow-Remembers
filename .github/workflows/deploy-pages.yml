@@ -23,8 +23,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run prebuild
+      # This repository does not publish its local lockfile yet, so use a
+      # regular install in the hosted build instead of failing on `npm ci`.
+      - run: npm install
       - name: Build static story site
         run: npm run build
         env:
@@ -47,4 +48,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-
