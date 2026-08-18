@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://when-tomorrow-remembers.com/sitemap.xml
+Sitemap: https://sereiatalia.github.io/When-Tomorrow-Remembers/sitemap.xml
+
