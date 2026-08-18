@@ -12,10 +12,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true"
+  ? "https://sereiatalia.github.io/When-Tomorrow-Remembers"
+  : "https://when-tomorrow-remembers.com";
+
 export const metadata: Metadata = {
   title: "When Tomorrow Remembers — Book 1",
   description: "A secret archive for Aurelia Veyne's time-travel story.",
-  metadataBase: new URL("https://when-tomorrow-remembers.com"),
+  metadataBase: new URL(siteUrl),
   keywords: [
     "When Tomorrow Remembers",
     "time travel mystery",
@@ -34,7 +38,7 @@ export const metadata: Metadata = {
     title: "When Tomorrow Remembers — Book 1",
     description: "Enter Aurelia Veyne's interactive time-travel archive.",
     type: "website",
-    url: "https://when-tomorrow-remembers.com/",
+    url: `${siteUrl}/`,
   },
   icons: {
     icon: "/favicon.svg",
