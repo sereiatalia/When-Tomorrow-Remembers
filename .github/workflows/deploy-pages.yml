@@ -33,6 +33,8 @@ jobs:
           NEXT_PUBLIC_GITHUB_PAGES: "true"
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      - name: Place static assets at the GitHub Pages artifact root
+        run: cp -R dist/client/When-Tomorrow-Remembers/_next dist/client/_next
       - run: touch dist/client/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
