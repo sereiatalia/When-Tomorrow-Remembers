@@ -20,9 +20,9 @@ The site uses Supabase Auth for email/password sign-up and confirmation, and the
 
 ## Deployment
 
-This is a Vinext/Cloudflare app. Deploy it through Cloudflare Pages, Cloudflare Workers, or OpenAI Sites. GitHub Pages only serves static files and cannot run the Vinext server or Supabase-backed account flow directly.
+This project is configured for GitHub Pages. Every push to the `main` branch runs the static build and deploys the website to `https://sereiatalia.github.io/When-Tomorrow-Remembers/`.
 
 ## Editing the story
 
-The GitHub repository is the editable source of truth. Story chapters are in `app/storyContent.ts`; update that file, then rebuild and publish the site through the configured Vinext/Cloudflare deployment. The public site is intentionally separate from GitHub Pages so the interactive reader, audio effects, and Supabase account features continue to work.
+The GitHub repository is the editable source of truth. Story chapters are in `app/storyContent.ts`; update that file and push to `main`. GitHub Pages will rebuild and publish the site automatically. The reader, animations, audio, and Supabase browser authentication work in the static deployment. To enable Supabase sign-in, add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` as repository variables in GitHub Settings → Secrets and variables → Actions.
 
