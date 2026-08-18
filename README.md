@@ -98,4 +98,16 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+# When Tomorrow Remembers
+
+Interactive story archive for Book 1.
+
+## Supabase setup
+
+1. Copy `.env.example` to `.env.local`.
+2. Add the Supabase publishable key from Project Settings → API.
+3. Run `supabase/migrations/001_reader_progress.sql` in the Supabase SQL editor.
+4. Keep email confirmations enabled in Authentication → Providers → Email.
+
+The site uses Supabase Auth for email/password sign-up and confirmation, and the `reader_progress` table for cross-device reading progress. The browser only receives the publishable key; never place a service-role key in `.env.local` or client code.
 
