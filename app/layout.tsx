@@ -15,6 +15,27 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "When Tomorrow Remembers — Book 1",
   description: "A secret archive for Aurelia Veyne's time-travel story.",
+  metadataBase: new URL("https://when-tomorrow-remembers.com"),
+  keywords: [
+    "When Tomorrow Remembers",
+    "time travel mystery",
+    "science fiction romance",
+    "Aurelia Veyne",
+    "interactive story archive",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title: "When Tomorrow Remembers — Book 1",
+    description: "Enter Aurelia Veyne's interactive time-travel archive.",
+    type: "website",
+    url: "https://when-tomorrow-remembers.com/",
+  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
