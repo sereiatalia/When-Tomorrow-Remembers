@@ -8,7 +8,6 @@ import {
   type UIEvent,
 } from "react";
 import { useEffect } from "react";
-import { supabase } from "./supabase";
 import { storySections } from "./storyContent";
 
 export const dynamic = "force-static";
@@ -166,24 +165,17 @@ export default function Home() {
   const [filter, setFilter] = useState("all");
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerChapter, setReaderChapter] = useState("Prologue");
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authMessage, setAuthMessage] = useState("");
-  const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const [warpActive, setWarpActive] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [readerPercent, setReaderPercent] = useState(0);
   const siteRef = useRef<HTMLElement>(null);
+  const readerCardRef = useRef<HTMLDivElement>(null);
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const ambientSourcesRef = useRef<
     Array<OscillatorNode | AudioBufferSourceNode>
   >([]);
-  const supabaseReady = Boolean(supabase);
+  const progressKey = "wtr-reader-progress-v1";
   const visibleChapters = useMemo(
     () =>
       filter === "available"
@@ -321,8 +313,11 @@ export default function Home() {
   function handleReaderScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
     const max = target.scrollHeight - target.clientHeight;
-    setReaderPercent(
-      max > 0 ? Math.round((target.scrollTop / max) * 100) : 100,
+    const percent = max > 0 ? Math.round((target.scrollTop / max) * 100) : 100;
+    setReaderPercent(percent);
+    localStorage.setItem(
+      progressKey,
+      JSON.stringify({ chapter: readerChapter, percent }),
     );
   }
 
@@ -341,15 +336,53 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => setSignedInEmail(data.session?.user.email ?? null));
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSignedInEmail(session?.user.email ?? null),
-    );
-    return () => listener.subscription.unsubscribe();
+    const saved = localStorage.getItem(progressKey);
+    if (!saved) return;
+    try {
+      const progress = JSON.parse(saved) as {
+        chapter?: string;
+        percent?: number;
+      };
+      if (
+        progress.chapter &&
+        storySections.some(
+          (section) =>
+            section.key === progress.chapter ||
+            section.title === progress.chapter,
+        )
+      )
+        setReaderChapter(progress.chapter);
+      if (typeof progress.percent === "number")
+        setReaderPercent(progress.percent);
+    } catch {
+      localStorage.removeItem(progressKey);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!readerOpen) return;
+    const saved = localStorage.getItem(progressKey);
+    if (!saved) return;
+    try {
+      const progress = JSON.parse(saved) as {
+        chapter?: string;
+        percent?: number;
+      };
+      if (
+        progress.chapter !== readerChapter ||
+        typeof progress.percent !== "number"
+      )
+        return;
+      window.setTimeout(() => {
+        const card = readerCardRef.current;
+        if (!card) return;
+        const max = card.scrollHeight - card.clientHeight;
+        card.scrollTo({ top: max * (progress.percent! / 100) });
+      }, 80);
+    } catch {
+      /* Ignore invalid device-local progress. */
+    }
+  }, [readerOpen, readerChapter]);
 
   useEffect(() => {
     const sections = Array.from(
@@ -369,66 +402,6 @@ export default function Home() {
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
   }, []);
-
-  async function submitAuth() {
-    setAuthMessage("");
-    if (!supabase) {
-      setAuthMessage(
-        "Connect the Supabase publishable key in your environment first.",
-      );
-      return;
-    }
-    if (authMode === "signup") {
-      const { error } = await supabase.auth.signUp({
-        email: authEmail,
-        password: authPassword,
-        options: {
-          data: { username: authUsername },
-          emailRedirectTo: window.location.origin,
-        },
-      });
-      setAuthMessage(
-        error
-          ? error.message
-              .toLowerCase()
-              .includes("database error saving new user")
-            ? "Supabase rejected this signup in the database. Run the profile migration, then check Supabase Auth Logs for any existing trigger error."
-            : error.message
-          : "Check your email for the confirmation link, then return here to sign in.",
-      );
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password: authPassword,
-      });
-      setAuthMessage(
-        error
-          ? error.message
-          : "Signed in. Your reader progress is now ready to sync.",
-      );
-    }
-  }
-
-  async function saveProgress() {
-    if (!supabase) {
-      setReaderOpen(false);
-      return;
-    }
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.user)
-      await supabase
-        .from("reader_progress")
-        .upsert({
-          user_id: data.session.user.id,
-          username:
-            authUsername || data.session.user.user_metadata?.username || null,
-          book_number: 1,
-          chapter_key: readerChapter,
-          progress_percent: 0,
-          updated_at: new Date().toISOString(),
-        });
-    setReaderOpen(false);
-  }
 
   return (
     <main
@@ -467,9 +440,6 @@ export default function Home() {
             <span className={sound ? "toggle on" : "toggle"}>
               <i />
             </span>
-          </button>
-          <button className="account-button" onClick={() => setAuthOpen(true)}>
-            ACCOUNT <span>↗</span>
           </button>
         </div>
       </nav>
@@ -1066,7 +1036,11 @@ export default function Home() {
           aria-modal="true"
           aria-label="Story reader"
         >
-          <div className="reader-modal-card" onScroll={handleReaderScroll}>
+          <div
+            ref={readerCardRef}
+            className="reader-modal-card"
+            onScroll={handleReaderScroll}
+          >
             <button
               className="modal-close"
               onClick={() => setReaderOpen(false)}
@@ -1161,158 +1135,12 @@ export default function Home() {
                     {nextStory ? "Next chapter" : "Next chapter locked"}{" "}
                     <span>→</span>
                   </button>
-                  <button
-                    className="next-reading secondary"
-                    onClick={saveProgress}
-                  >
-                    Save your place <span>↗</span>
-                  </button>
+                  <span className="device-save-status">
+                    ✓ Progress saved automatically on this device
+                  </span>
                 </div>
               </article>
             </div>
-          </div>
-        </div>
-      )}
-      {authOpen && (
-        <div
-          className="reader-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Account access"
-        >
-          <div className="account-modal">
-            <button
-              className="modal-close"
-              onClick={() => setAuthOpen(false)}
-              aria-label="Close account panel"
-            >
-              ×
-            </button>
-            <span className="section-kicker">ACCOUNT ACCESS / SUPABASE</span>
-            <h2>
-              {authMode === "signup" ? (
-                <>
-                  Create your
-                  <br />
-                  <em>archive key.</em>
-                </>
-              ) : (
-                <>
-                  Return to your
-                  <br />
-                  <em>archive.</em>
-                </>
-              )}
-            </h2>
-            {signedInEmail ? (
-              <>
-                <p>
-                  You are signed in as <strong>{signedInEmail}</strong>. Your
-                  reading progress can sync across devices.
-                </p>
-                <button
-                  className="button primary"
-                  onClick={async () => {
-                    await supabase?.auth.signOut();
-                    setAuthOpen(false);
-                  }}
-                >
-                  Sign out <span>↗</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="auth-tabs">
-                  <button
-                    className={authMode === "signin" ? "active" : ""}
-                    onClick={() => {
-                      setAuthMode("signin");
-                      setAuthMessage("");
-                    }}
-                  >
-                    SIGN IN
-                  </button>
-                  <button
-                    className={authMode === "signup" ? "active" : ""}
-                    onClick={() => {
-                      setAuthMode("signup");
-                      setAuthMessage("");
-                    }}
-                  >
-                    SIGN UP
-                  </button>
-                </div>
-                {!supabaseReady && (
-                  <div className="auth-setup">
-                    <span>SUPABASE CONNECTION REQUIRED</span>
-                    <p>
-                      Add the publishable key to <code>.env.local</code>, then
-                      restart the local server to enable account creation and
-                      progress sync.
-                    </p>
-                    <a
-                      href="https://supabase.com/dashboard/project/odvghccltuybbacaxufl/settings/api"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open Supabase API settings ↗
-                    </a>
-                  </div>
-                )}
-                {authMode === "signup" && (
-                  <input
-                    className="auth-input"
-                    placeholder="Username"
-                    value={authUsername}
-                    onChange={(e) => setAuthUsername(e.target.value)}
-                    disabled={!supabaseReady}
-                  />
-                )}
-                <input
-                  className="auth-input"
-                  type="email"
-                  placeholder="Email address"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  disabled={!supabaseReady}
-                />
-                <div className="password-field">
-                  <input
-                    className="auth-input"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    disabled={!supabaseReady}
-                  />
-                  <button
-                    className="password-toggle"
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    disabled={!supabaseReady}
-                  >
-                    {showPassword ? "HIDE" : "SHOW"}
-                  </button>
-                </div>
-                <button
-                  className="button primary auth-submit"
-                  onClick={submitAuth}
-                  disabled={!supabaseReady}
-                >
-                  {authMode === "signup" ? "Create account" : "Sign in"}{" "}
-                  <span>↗</span>
-                </button>
-                {authMessage && <p className="auth-message">{authMessage}</p>}
-                <small className="auth-note">
-                  {authMode === "signup"
-                    ? "A confirmation email will be sent before your first sign-in."
-                    : "Use the email and password from your archive account."}
-                </small>
-              </>
-            )}
           </div>
         </div>
       )}
